@@ -24,6 +24,27 @@ The parsed object is convenient, but it **throws away the original bytes**: the 
  {"id": 1,  "paid": true}   ──▶  keep a copy  ──▶  <Buffer 7b 22 69 64 ...>   (req.rawBody)
 ```
 
+## First, what is HMAC?
+
+**HMAC is a tamper-proof seal made from a message plus a shared secret.**
+
+Think of a wax seal on a letter. Only you and your friend own the stamp. If the letter arrives with the right seal, it's really from your friend and nobody changed it on the way.
+
+```
+ message + secret key  ──▶  [ HMAC function ]  ──▶  signature
+ "pay $10"   "s3cret"                               a1b9f4...  (fixed-length gibberish)
+```
+
+Three things make it useful:
+
+- **Same input, same output.** The same message and the same secret always give the same signature.
+- **Any change gives a totally different signature.** Change `$10` to `$100` and the signature looks completely unrelated.
+- **You can't fake it without the secret.** Seeing the message and signature doesn't let you work out the secret or build a valid signature for a different message.
+
+So the sender and receiver both know the secret. The sender sends the message **and** the signature. The receiver calculates the signature again from the message. If the two signatures match, the message is genuine and untouched.
+
+That is exactly how webhooks prove "this really came from Stripe/GitHub", and it's why the next section matters.
+
 ## Why would you need the original bytes?
 
 Because of **signatures**. Services like Stripe, GitHub and Shopify prove a webhook really came from them by signing the body:
