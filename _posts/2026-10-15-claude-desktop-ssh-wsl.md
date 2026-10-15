@@ -152,6 +152,58 @@ The first connection takes a little longer, because Claude Desktop installs Clau
 
 The docs also describe using `~/.ssh/config` host aliases. Their note says that works on macOS and Linux, and doesn't say the same for a Windows client, so filling in the fields above is the safe route on Windows.
 
+## Quick copy-paste version
+
+Already know what each step does? Here is the whole setup as one-liners. Replace `YOUR_WSL_USER` with your Linux username.
+
+**1. In WSL: install sshd, set the port, start it**
+
+```bash
+sudo apt update && sudo apt install -y openssh-server && printf 'Port 2222\nListenAddress 127.0.0.1\n' | sudo tee /etc/ssh/sshd_config.d/wsl.conf >/dev/null && sudo sshd -t && sudo service ssh start
+```
+
+**2. In WSL: start sshd automatically on every boot** (run once)
+
+```bash
+grep -q 'systemd=true' /etc/wsl.conf 2>/dev/null || printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf
+```
+
+Then restart WSL from **PowerShell**, and enable the service in WSL:
+
+```powershell
+wsl --shutdown
+```
+
+```bash
+sudo systemctl enable --now ssh
+```
+
+**3. In PowerShell: create a key**
+
+```powershell
+ssh-keygen -t ed25519
+```
+
+**4. In PowerShell: authorize that key inside WSL**
+
+```powershell
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | wsl bash -c "mkdir -p ~/.ssh && chmod 700 ~/.ssh && tr -d '\r' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+**5. In PowerShell: test the connection**
+
+```powershell
+ssh -p 2222 -i $env:USERPROFILE\.ssh\id_ed25519 YOUR_WSL_USER@127.0.0.1
+```
+
+**6. In Claude Desktop:** Code tab, then **SSH > Add SSH connection…** with host `YOUR_WSL_USER@127.0.0.1`, port `2222`, and your private key path.
+
+**Lock it down (after the test works):** turn off password logins.
+
+```bash
+echo 'PasswordAuthentication no' | sudo tee -a /etc/ssh/sshd_config.d/wsl.conf >/dev/null && sudo sshd -t && sudo service ssh restart
+```
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
@@ -176,4 +228,4 @@ The docs also describe using `~/.ssh/config` host aliases. Their note says that 
 > **Try the native WSL option first. Use SSH when you want the terminal, plugins and connectors.**
 > Always make plain `ssh` work in a Windows terminal *before* adding it to Claude Desktop.
 
-*Sources: the Claude Code docs for [Desktop in WSL](https://code.claude.com/docs/en/desktop-wsl) and [Desktop SSH sessions](https://code.claude.com/docs/en/desktop). I haven't tested every step on a live machine, and Claude Desktop's menus may change between versions.*
+*I tested this setup end to end on my own Windows machine with WSL 2. Claude Desktop's menus may change between versions, so check the docs if something looks different: [Desktop in WSL](https://code.claude.com/docs/en/desktop-wsl) and [Desktop SSH sessions](https://code.claude.com/docs/en/desktop).*
